@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tools.module import init_weight
 import torchvision
+import torch
 
 
 def get_pretrained_net(name, num_classes):
@@ -9,6 +10,63 @@ def get_pretrained_net(name, num_classes):
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs, num_classes)
     return model
+
+
+class LeNet(nn.Module):
+    """
+    # recommend input_size is 32x32
+    """
+
+    def __init__(self, num_classes):
+        super(LeNet, self).__init__()
+        # self.conv1 = nn.Conv2d(1, 6, 5)  # 6x28x28
+        # self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)  # 6x14x14
+        # self.conv3 = nn.Conv2d(6, 16, 5)  # 16x10x10
+        # self.pool4 = nn.MaxPool2d(kernel_size=2, stride=2)  # 16x5x5
+        # self.conv5 = nn.Conv2d(16, 120, 5)  # 120x1x1
+        # self.fc6 = nn.Linear(120, 84)
+        # self.fc7 = nn.Linear(84, num_classes)
+
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 6, 5),
+            nn.ReLU(True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(6, 16, 5),
+            nn.ReLU(True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(400, 120),
+            nn.ReLU(True),
+            nn.Linear(120, 84),
+            nn.ReLU(True),
+            nn.Linear(84, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        x = self.classifier(x)
+        return x
+
+    @staticmethod
+    def num_flat_features(x):
+        # x.size()返回值为(256, 16, 5, 5)，size的值为(16, 5, 5)，256是batch_size
+        size = x.size()[1:]  # x.size返回的是一个元组，size表示截取元组中第二个开始的数字
+        num_features = 1
+        for s in size:
+            num_features *= s
+        return num_features
+
+
+def test_lenet():
+    data = torch.ones((1, 1, 32, 32))
+    model = LeNet(10)
+    model.eval()
+    print(model)
+    ret = model(data)
+    print(ret.size())
 
 
 def mobilenet_v2(num_classes):
@@ -19,6 +77,7 @@ def mobilenet_v2(num_classes):
     )
     init_weight(model.classifier)
     return model
+
 
 class Net(nn.Module):
     """
@@ -54,7 +113,7 @@ class BasicConv2d(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, norm=True, activation='relu', pool=True):
         super(BasicConv2d, self).__init__()
-        self.activation=activation
+        self.activation = activation
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding)
         self.norm = nn.BatchNorm2d(out_channels) if norm else None
         self.pool = nn.MaxPool2d(2) if pool else None
@@ -63,7 +122,7 @@ class BasicConv2d(nn.Module):
     def forward(self, x):
         x = self.conv(x)
         x = self.norm(x) if self.norm is not None else x
-        x = eval("F."+self.activation)(x, inplace=True) if self.activation is not None else x
+        x = eval("F." + self.activation)(x, inplace=True) if self.activation is not None else x
         x = self.pool(x) if self.pool is not None else x
 
         return x
@@ -102,6 +161,7 @@ class Net2(nn.Module):
         x = self.fc3(x)
         # x = F.softmax(x, dim=1)
         return x
+
 
 class Net1(nn.Module):
     def __init__(self, num_classes):
