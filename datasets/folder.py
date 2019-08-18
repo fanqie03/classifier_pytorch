@@ -5,18 +5,31 @@ import torchvision
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
+import imgaug.augmenters as iaa
+import numpy as np
+from PIL import Image
 
 
 def get_dataset(size=(224, 224), data_root='/home/cmf/datasets/extract_data', batch_size=32, num_workers=4):
+    seq = iaa.Sequential([
+        iaa.GaussianBlur((0, 3.0))
+    ])
+
     data_transforms = {
         'train': transforms.Compose([
             transforms.Resize(size),
+            # transforms.ColorJitter()
+            # np.asarray,
+            # seq,
+            # Image.fromarray,
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
+            # transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ]),
         'val': transforms.Compose([
             transforms.Resize(size),
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            # transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ])
     }
 

@@ -7,6 +7,7 @@ import torch
 import torch.optim as optim
 from torch import nn
 from torch.optim import lr_scheduler
+from torch.utils.tensorboard import SummaryWriter
 
 from backbone import *
 from datasets.folder import get_dataset
@@ -40,7 +41,7 @@ def parse_args():
     parser.add_argument('--num_workers', default=4)
     parser.add_argument('--num_epochs', default=50)
     # parser.add_argument('--net_type', default='get_pretrained_net("resnet50", 3)')
-    parser.add_argument('--net_type', default='Net')
+    parser.add_argument('--net_type', default='Net2')
     args = parser.parse_args()
     return args
 
@@ -96,6 +97,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
 
+            writer.add_scalar('{} Loss'.format(phase), epoch_loss, epoch)
+            writer.add_scalar('{} Acc'.format(phase), epoch_acc, epoch)
+
             # deep copy the model
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
@@ -116,10 +120,13 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 def main():
     args = parse_args()
 
-    t = time.asctime(time.localtime(time.time()))
+    t = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     work_dir = os.path.join(args.work_dir, t)
     if not os.path.exists(work_dir):
         os.makedirs(work_dir)
+
+    global writer
+    writer = SummaryWriter(os.path.join(work_dir, 'runs'))
 
     global device
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')

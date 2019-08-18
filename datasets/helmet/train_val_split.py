@@ -7,8 +7,8 @@ import shutil
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description='split data to train set and val set')
-parser.add_argument('--test_size', default=0.3)
-parser.add_argument('--input_folder', default='/home/cmf/datasets/extract_data/classifier')
+parser.add_argument('--test_size', default=0.1)
+parser.add_argument('--input_folder', default='/home/cmf/datasets/extract_data/temp1')
 parser.add_argument('--output_folder', default='/home/cmf/datasets/extract_data/')
 args = parser.parse_args()
 

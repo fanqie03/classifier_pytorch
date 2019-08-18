@@ -6,7 +6,7 @@ import shutil
 
 parser = argparse.ArgumentParser(description='extract subset dataset')
 parser.add_argument('--input_folder', default='/home/cmf/datasets/extract_data/gongdi/person')
-parser.add_argument('--output_folder', default='/home/cmf/datasets/extract_data/gongdi_subset/person')
+parser.add_argument('--output_folder', default='/home/cmf/datasets/extract_data/test')
 parser.add_argument('--random_seed', default=None)
 parser.add_argument('--subset_percentage', default=0.03)
 parser.add_argument('--k', default=400)
@@ -41,4 +41,4 @@ src = list(input_folder.rglob('*'))
 sub_src = random.sample(src, k=args.k)
 for i in sub_src:
     dst = output_folder / i.name
-    shutil.copy(str(i), str(dst))
+    shutil.move(str(i), str(dst))
