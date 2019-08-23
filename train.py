@@ -39,21 +39,21 @@ def parse_args():
     parser.add_argument('--data_root', default='/home/cmf/datasets/extract_data')
     parser.add_argument('--batch_size', default=32)
     parser.add_argument('--num_workers', default=4)
-    parser.add_argument('--num_epochs', default=50)
+    parser.add_argument('--total_epochs', default=50)
     # parser.add_argument('--net_type', default='get_pretrained_net("resnet50", 3)')
     parser.add_argument('--net_type', default='Net2')
     args = parser.parse_args()
     return args
 
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
+def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
     since = time.time()
 
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
 
-    for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
+    for epoch in range(total_epochs):
+        print('Epoch {}/{}'.format(epoch, total_epochs - 1))
         print('-' * 10)
 
         # Each epoch has a training and validation phase
@@ -145,12 +145,12 @@ def main():
 
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
-    model = train_model(net, criterion, optimizer, exp_lr_scheduler, num_epochs=args.num_epochs)
+    model = train_model(net, criterion, optimizer, exp_lr_scheduler, total_epochs=args.total_epochs)
 
     model_pth = os.path.join(work_dir, 'model_{}.pth'.format(args.net_type))
 
     torch.save({
-        'epoch': args.num_epochs,
+        'epoch': args.total_epochs,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'classes': class_names

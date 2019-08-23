@@ -10,7 +10,11 @@ import numpy as np
 from PIL import Image
 
 
-def get_dataset(size=(224, 224), data_root='/home/cmf/datasets/extract_data', batch_size=32, num_workers=4):
+def get_dataset(size=(224, 224),
+                data_root='/home/cmf/datasets/extract_data',
+                batch_size=32, num_workers=4,
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225]):
     seq = iaa.Sequential([
         iaa.GaussianBlur((0, 3.0))
     ])
@@ -24,12 +28,12 @@ def get_dataset(size=(224, 224), data_root='/home/cmf/datasets/extract_data', ba
             # Image.fromarray,
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            # transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+            transforms.Normalize(mean, std)
         ]),
         'val': transforms.Compose([
             transforms.Resize(size),
             transforms.ToTensor(),
-            # transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+            transforms.Normalize(mean, std)
         ])
     }
 

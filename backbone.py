@@ -12,6 +12,21 @@ def get_pretrained_net(name, num_classes):
     return model
 
 
+def resnet18(num_classes):
+    model = torchvision.models.resnet18(True)
+    model.fc = nn.Sequential(
+        nn.Dropout2d(0.7),
+        nn.Linear(in_features=512, out_features=num_classes, bias=True)
+    )
+    init_weight(model.fc)
+    return model
+
+
+def test_resnet18():
+    model = resnet18(3)
+    print(model)
+
+
 class LeNet(nn.Module):
     """
     # recommend input_size is 32x32
