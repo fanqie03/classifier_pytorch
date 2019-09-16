@@ -27,13 +27,14 @@ def get_dataset(size=(224, 224),
             # seq,
             # Image.fromarray,
             transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize(mean, std)
+            # transforms.Normalize(mean, std)
         ]),
         'val': transforms.Compose([
             transforms.Resize(size),
             transforms.ToTensor(),
-            transforms.Normalize(mean, std)
+            # transforms.Normalize(mean, std)
         ])
     }
 

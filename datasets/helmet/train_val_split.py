@@ -8,8 +8,8 @@ from tqdm import tqdm
 
 parser = argparse.ArgumentParser(description='split data to train set and val set')
 parser.add_argument('--test_size', default=0.1)
-parser.add_argument('--input_folder', default='/home/cmf/datasets/extract_data/temp1')
-parser.add_argument('--output_folder', default='/home/cmf/datasets/extract_data/')
+parser.add_argument('--input_folder', default='/home/cmf/datasets/helmet_head')
+parser.add_argument('--output_folder', default='/home/cmf/datasets/helmet_head/train_val')
 args = parser.parse_args()
 
 input_folder = Path(args.input_folder)

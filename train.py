@@ -36,7 +36,7 @@ def parse_args():
         action='store_true',
         help='automatically scale lr with the number of gpus')
 
-    parser.add_argument('--data_root', default='/home/cmf/datasets/extract_data')
+    parser.add_argument('--data_root', default='/home/cmf/datasets/helmet_head/train_val')
     parser.add_argument('--batch_size', default=32)
     parser.add_argument('--num_workers', default=4)
     parser.add_argument('--total_epochs', default=50)
@@ -59,7 +59,6 @@ def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
-                scheduler.step()
                 model.train()  # Set model to training mode
             else:
                 model.eval()  # Set model to evaluate mode
@@ -91,6 +90,7 @@ def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
 
+            scheduler.step()
             epoch_loss = running_loss / dataset_sizes[phase]
             epoch_acc = running_corrects.double() / dataset_sizes[phase]
 
@@ -104,8 +104,13 @@ def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
-
-        print()
+                model_pth = os.path.join(work_dir, 'model_{}_{:.4f}_{:.4f}.pth'.format(args.net_type, epoch_loss, epoch_acc))
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    # 'optimizer_state_dict': optimizer.state_dict(),
+                    'classes': class_names
+                }, model_pth)
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
@@ -118,6 +123,7 @@ def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
 
 
 def main():
+    global args, work_dir
     args = parse_args()
 
     t = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -147,14 +153,9 @@ def main():
 
     model = train_model(net, criterion, optimizer, exp_lr_scheduler, total_epochs=args.total_epochs)
 
-    model_pth = os.path.join(work_dir, 'model_{}.pth'.format(args.net_type))
 
-    torch.save({
-        'epoch': args.total_epochs,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'classes': class_names
-    }, model_pth)
+
+
 
 
 if __name__ == '__main__':
