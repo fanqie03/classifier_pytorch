@@ -65,7 +65,7 @@ def main():
         image = Image.open(file)
         raw_image = np.array(image)
         raw_image = cv2.cvtColor(raw_image, cv2.COLOR_RGB2BGR)
-        raw_image = cv2.resize(raw_image, (224, 224))
+        draw_image = cv2.resize(raw_image, (448, 448))
         image = preprocess_image(image)
         image = torch.from_numpy(image).to(device)
         result = model(image)
@@ -74,12 +74,13 @@ def main():
         class_name = classes[index[0]]
         if args.show:
             cv2.putText(raw_image, class_name, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255))
-            cv2.imshow('demo', raw_image)
-            cv2.waitKey()
+            # cv2.imshow('demo', raw_image)
+            # cv2.waitKey()
         output_path = output_dir / class_name
         check_dir(output_path)
         output_file = output_path / file.name
-        shutil.copy(file, output_file)
+        # shutil.copy(file, output_file)
+        cv2.imwrite(str(output_file), raw_image)
         # print(_, preds, class_name)
 
 

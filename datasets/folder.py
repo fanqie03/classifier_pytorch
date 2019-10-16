@@ -8,15 +8,20 @@ from torchvision.datasets import ImageFolder
 import imgaug.augmenters as iaa
 import numpy as np
 from PIL import Image
+from datasets.img_aug import ImgAug
 
 
 def get_dataset(size=(224, 224),
-                data_root='/home/cmf/datasets/extract_data',
+                data_root='/home/cmf/datasets/helmet_head/train_val',
                 batch_size=32, num_workers=4,
                 mean=[0.485, 0.456, 0.406],
                 std=[0.229, 0.224, 0.225]):
     seq = iaa.Sequential([
-        iaa.GaussianBlur((0, 3.0))
+        iaa.Sometimes(
+            0.5,
+            iaa.CoarseDropout((0.03, 0.15), size_percent=(0.1, 0.4)),
+        )
+        # iaa.GaussianBlur((0, 3.0)),
     ])
 
     data_transforms = {
@@ -27,8 +32,13 @@ def get_dataset(size=(224, 224),
             # seq,
             # Image.fromarray,
             transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip(),
+            # transforms.RandomVerticalFlip(),
+            transforms.ColorJitter(0.2, 0.5, 0.7, 0.15),
+            transforms.RandomAffine(50),
+            ImgAug(seq),
             transforms.ToTensor(),
+            transforms.RandomErasing()
+
             # transforms.Normalize(mean, std)
         ]),
         'val': transforms.Compose([

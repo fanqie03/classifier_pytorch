@@ -38,10 +38,11 @@ def parse_args():
 
     parser.add_argument('--data_root', default='/home/cmf/datasets/helmet_head/train_val')
     parser.add_argument('--batch_size', default=32)
-    parser.add_argument('--num_workers', default=4)
+    parser.add_argument('--num_workers', default=6)
     parser.add_argument('--total_epochs', default=50)
     # parser.add_argument('--net_type', default='get_pretrained_net("resnet50", 3)')
     parser.add_argument('--net_type', default='Net2')
+    parser.add_argument('--pretrained_model', default=None)
     args = parser.parse_args()
     return args
 
@@ -51,6 +52,7 @@ def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
 
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
+    min_loss = 99999999
 
     for epoch in range(total_epochs):
         print('Epoch {}/{}'.format(epoch, total_epochs - 1))
@@ -101,10 +103,11 @@ def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
             writer.add_scalar('{} Acc'.format(phase), epoch_acc, epoch)
 
             # deep copy the model
-            if phase == 'val' and epoch_acc > best_acc:
+            if phase == 'val' and (epoch_acc > best_acc or epoch_loss < min_loss):
                 best_acc = epoch_acc
+                min_loss = epoch_loss
                 best_model_wts = copy.deepcopy(model.state_dict())
-                model_pth = os.path.join(work_dir, 'model_{}_{:.4f}_{:.4f}.pth'.format(args.net_type, epoch_loss, epoch_acc))
+                model_pth = os.path.join(work_dir, 'model_{}_{}_{:.4f}_{:.4f}.pth'.format(args.net_type, epoch, epoch_loss, epoch_acc))
                 torch.save({
                     'epoch': epoch,
                     'model_state_dict': model.state_dict(),
@@ -115,7 +118,7 @@ def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
-    print('Best val Acc: {:4f}'.format(best_acc))
+    print('Best val Acc: {:4f}, min loss {:4f}'.format(best_acc, min_loss))
 
     # load best model weights
     model.load_state_dict(best_model_wts)
@@ -131,6 +134,10 @@ def main():
     if not os.path.exists(work_dir):
         os.makedirs(work_dir)
 
+    with open(os.path.join(work_dir, 'meta.txt'), 'w') as f:
+        for key, value in args.__dict__.items():
+            f.write("key:[{}], value:[{}]\r\n".format(key, value))
+
     global writer
     writer = SummaryWriter(os.path.join(work_dir, 'runs'))
 
@@ -145,9 +152,18 @@ def main():
         net = eval(args.net_type)
     else:
         net = eval(args.net_type)(len(class_names))
+
     net.to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+
+    if args.pretrained_model:
+        m = torch.load(args.pretrained_model)
+        net.load_state_dict(m['model_state_dict'])
+        print('load pretrained model')
+        if m.get('optimizer_state_dict') is not None:
+            optimizer.load_state_dict(m['optimizer_state_dict'])
+            print('load optimizer')
 
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
