@@ -12,6 +12,8 @@ from torch.utils.tensorboard import SummaryWriter
 from backbone import *
 from datasets.folder import get_dataset
 
+from tools import Logger
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='train classifier')
@@ -36,13 +38,13 @@ def parse_args():
         action='store_true',
         help='automatically scale lr with the number of gpus')
 
-    parser.add_argument('--data_root', default='/home/cmf/datasets/helmet_head/train_val')
+    parser.add_argument('--data_root', default='/home/cmf/datasets/helmet_all/train_val')
     parser.add_argument('--batch_size', default=32)
     parser.add_argument('--num_workers', default=6)
-    parser.add_argument('--total_epochs', default=50)
+    parser.add_argument('--total_epochs', default=700)
     # parser.add_argument('--net_type', default='get_pretrained_net("resnet50", 3)')
     parser.add_argument('--net_type', default='Net2')
-    parser.add_argument('--pretrained_model', default=None)
+    parser.add_argument('--pretrained_model', default='checkpoint/2019-10-22 12:58:25/model_resnet18_8_0.0026_0.9996.pth')
     args = parser.parse_args()
     return args
 
@@ -57,6 +59,7 @@ def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
     for epoch in range(total_epochs):
         print('Epoch {}/{}'.format(epoch, total_epochs - 1))
         print('-' * 10)
+        # print('learning rate is {}'.format(optimizer))
 
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
@@ -107,7 +110,9 @@ def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
                 best_acc = epoch_acc
                 min_loss = epoch_loss
                 best_model_wts = copy.deepcopy(model.state_dict())
-                model_pth = os.path.join(work_dir, 'model_{}_{}_{:.4f}_{:.4f}.pth'.format(args.net_type, epoch, epoch_loss, epoch_acc))
+                model_pth = os.path.join(work_dir,
+                                         'model_{}_{}_{:.4f}_{:.4f}.pth'.format(args.net_type, epoch, epoch_loss,
+                                                                                epoch_acc))
                 torch.save({
                     'epoch': epoch,
                     'model_state_dict': model.state_dict(),
@@ -134,6 +139,9 @@ def main():
     if not os.path.exists(work_dir):
         os.makedirs(work_dir)
 
+    import sys
+    sys.stdout = Logger(os.path.join(work_dir, 'log.txt'))
+
     with open(os.path.join(work_dir, 'meta.txt'), 'w') as f:
         for key, value in args.__dict__.items():
             f.write("key:[{}], value:[{}]\r\n".format(key, value))
@@ -153,14 +161,20 @@ def main():
     else:
         net = eval(args.net_type)(len(class_names))
 
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
+        net = nn.DataParallel(net)
+
     net.to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    # optimizer = optim.Adam(net.parameters(), )
 
     if args.pretrained_model:
         m = torch.load(args.pretrained_model)
         net.load_state_dict(m['model_state_dict'])
-        print('load pretrained model')
+        print('load pretrained model : ' + args.pretrained_model)
         if m.get('optimizer_state_dict') is not None:
             optimizer.load_state_dict(m['optimizer_state_dict'])
             print('load optimizer')
@@ -168,10 +182,6 @@ def main():
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
     model = train_model(net, criterion, optimizer, exp_lr_scheduler, total_epochs=args.total_epochs)
-
-
-
-
 
 
 if __name__ == '__main__':

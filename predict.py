@@ -14,12 +14,12 @@ import cv2
 
 def get_args():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--model_path', default='checkpoint/2019-08-16 15:03:22/model_mobilenet_v2.pth',
+    parser.add_argument('--model_path', default='checkpoint/2019-10-22 15:13:09/model_resnet18_4_0.0022_0.9994.pth',
                         help='path of saved model file')
-    parser.add_argument('--model', default='mobilenet_v2', help='model type')
-    parser.add_argument('--input_dir', default='/home/cmf/datasets/extract_data/gongdi/person',
+    parser.add_argument('--model', default='resnet18', help='model type')
+    parser.add_argument('--input_dir', default='/home/cmf/datasets/helmet_all/temp1',
                         help='the directory of test')
-    parser.add_argument('--output_dir', default='/home/cmf/datasets/extract_data/test_predict',
+    parser.add_argument('--output_dir', default='/home/cmf/datasets/helmet_all/predict',
                         help='the directory of predict result')
     parser.add_argument('--image_size', default=224)
     parser.add_argument('--threshold', type=float, help='')

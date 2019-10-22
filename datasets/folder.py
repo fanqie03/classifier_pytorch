@@ -9,10 +9,11 @@ import imgaug.augmenters as iaa
 import numpy as np
 from PIL import Image
 from datasets.img_aug import ImgAug
+# import albumentations as
 
 
 def get_dataset(size=(224, 224),
-                data_root='/home/cmf/datasets/helmet_head/train_val',
+                data_root='/home/cmf/datasets/helmet_all/train_val',
                 batch_size=32, num_workers=4,
                 mean=[0.485, 0.456, 0.406],
                 std=[0.229, 0.224, 0.225]):
@@ -20,25 +21,25 @@ def get_dataset(size=(224, 224),
         iaa.Sometimes(
             0.5,
             iaa.CoarseDropout((0.03, 0.15), size_percent=(0.1, 0.4)),
-        )
+            # iaa.JpegCompression()
+        ),
+        # iaa.MotionBlur(k=13)
         # iaa.GaussianBlur((0, 3.0)),
     ])
 
     data_transforms = {
         'train': transforms.Compose([
             transforms.Resize(size),
-            # transforms.ColorJitter()
-            # np.asarray,
-            # seq,
-            # Image.fromarray,
             transforms.RandomHorizontalFlip(),
-            # transforms.RandomVerticalFlip(),
-            transforms.ColorJitter(0.2, 0.5, 0.7, 0.15),
+            transforms.ColorJitter(0.3, 0.3, 0.3, 0.2),
             transforms.RandomAffine(50),
+            # transforms.Grayscale(3),
             ImgAug(seq),
             transforms.ToTensor(),
-            transforms.RandomErasing()
-
+            transforms.RandomErasing(ratio=(10, 15), inplace=True),
+            transforms.RandomErasing(ratio=(10, 15), inplace=True),
+            transforms.RandomErasing(ratio=(0.1, 0.2), inplace=True),
+            transforms.RandomErasing(ratio=(0.1, 0.2), inplace=True),
             # transforms.Normalize(mean, std)
         ]),
         'val': transforms.Compose([
@@ -80,5 +81,5 @@ if __name__ == '__main__':
 
     # Make a grid from batch
     out = torchvision.utils.make_grid(inputs)
-
+    print(out)
     imshow(out, title=[class_names[x] for x in classes])

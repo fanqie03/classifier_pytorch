@@ -100,9 +100,6 @@ def test_init_model():
         print(param.shape, param.requires_grad)
 
 
-if __name__ == '__main__':
-    test_init_model()
-
 
 def get_pretrained_net(name, num_classes):
     model = eval("torchvision.models." + name)(pretrained=True)
@@ -114,16 +111,90 @@ def get_pretrained_net(name, num_classes):
 def resnet18(num_classes):
     model = torchvision.models.resnet18(True)
     model.fc = nn.Sequential(
-        nn.Dropout2d(0.7),
+        nn.Dropout2d(0.3),
         nn.Linear(in_features=512, out_features=num_classes, bias=True)
     )
     init_weight(model.fc)
     return model
 
 
+def resnet34(num_classes):
+    # model = torchvision.models.resnet34(34)
+    # model.fc = nn.
+    pass
+
+
+def down_sam_blk(in_channels, out_channels):
+    return nn.Sequential(
+        nn.Conv2d(in_channels, out_channels, 3, 1, 1),
+        nn.BatchNorm2d(out_channels),
+        nn.ReLU(True),
+        nn.Conv2d(out_channels, out_channels, 3, 1, 1),
+        nn.BatchNorm2d(out_channels),
+        nn.ReLU(True),
+        nn.MaxPool2d(2, 2),
+    )
+
+
+class TinyNet(nn.Module):
+    def __init__(self, num_classes):
+        super(TinyNet, self).__init__()
+        self.model = nn.Sequential(
+        down_sam_blk(3, 16),
+        down_sam_blk(16, 32),
+        down_sam_blk(32, 64),
+        down_sam_blk(64, 128),
+        nn.Conv2d(128, num_classes, 1, 1, 0),
+        nn.AdaptiveAvgPool2d(1)
+        )
+        init_weight(self.model)
+
+    def forward(self, x):
+        x = self.model(x)
+        x = torch.reshape(x, (x.size(0), -1))
+        return x
+
+
+def test_tiny_net():
+    model = TinyNet(2)
+    x = torch.ones((1, 3, 224, 224))
+    r = model(x)
+    print(r.shape)
+
+
 def test_resnet18():
     model = resnet18(3)
     print(model)
+
+
+class SimpleNet(nn.Module):
+
+    def __init__(self, num_classes):
+        super(SimpleNet, self).__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 6, 5),
+            nn.BatchNorm2d(6),
+            nn.ReLU(True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(6, 16, 5),
+            nn.BatchNorm2d(16),
+            nn.ReLU(True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(400, 120),
+            nn.ReLU(True),
+            nn.Linear(120, 84),
+            nn.ReLU(True),
+            nn.Linear(84, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        x = self.classifier(x)
+        return x
 
 
 class LeNet(nn.Module):
@@ -142,10 +213,12 @@ class LeNet(nn.Module):
         # self.fc7 = nn.Linear(84, num_classes)
 
         self.features = nn.Sequential(
-            nn.Conv2d(1, 6, 5),
+            nn.Conv2d(3, 6, 5),
+            nn.BatchNorm2d(6),
             nn.ReLU(True),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Conv2d(6, 16, 5),
+            nn.BatchNorm2d(16),
             nn.ReLU(True),
             nn.MaxPool2d(kernel_size=2, stride=2),
         )
@@ -324,4 +397,5 @@ def test_get_pretrained_net():
 
 
 if __name__ == '__main__':
-    get_pretrained_net('resnet50', 10)
+    # get_pretrained_net('resnet50', 10)
+    test_tiny_net()
