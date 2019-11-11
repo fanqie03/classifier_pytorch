@@ -2,6 +2,7 @@ import argparse
 import copy
 import time
 import os
+import sys
 
 import torch
 import torch.optim as optim
@@ -12,52 +13,98 @@ from torch.utils.tensorboard import SummaryWriter
 from backbone import *
 from datasets.folder import get_dataset
 
-from tools import Logger
-
+from tools.misc import *
 
 def parse_args():
     parser = argparse.ArgumentParser(description='train classifier')
-    parser.add_argument('--config', help='train config file path', default='configs/helmet.py')
-    parser.add_argument('--work_dir', default='checkpoint', help='the dir to save logs and models')
-    parser.add_argument(
-        '--resume_from', help='the checkpoint file to resume from')
-    parser.add_argument(
-        '--validate',
-        action='store_true',
-        help='whether to evaluate the checkpoint during training')
-    parser.add_argument(
-        '--gpus',
-        type=int,
-        default=1,
-        help='number of gpus to use '
-             '(only applicable to non-distributed training)')
-    parser.add_argument('--seed', type=int, default=None, help='random seed')
+    parser.add_argument('--config', help='train config file path')
+
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument(
         '--autoscale-lr',
         action='store_true',
         help='automatically scale lr with the number of gpus')
 
-    parser.add_argument('--data_root', default='/home/cmf/datasets/helmet_all/train_val')
-    parser.add_argument('--batch_size', default=32)
-    parser.add_argument('--num_workers', default=6)
-    parser.add_argument('--total_epochs', default=700)
-    # parser.add_argument('--net_type', default='get_pretrained_net("resnet50", 3)')
+    # Params for scheduler
+    parser.add_argument('--scheduler', default='multi-step', type=str,
+                        choices=['multi-step', 'cosine', 'autoscale-lr'])
+    parser.add_argument('--power', default=2, type=int,
+                        help='poly lr pow')
+    # Params for Multi-step Scheduler
+    parser.add_argument('--milestons', default='30,50', type=str,
+                        help='milestons for MultiStepLR')
+    # Params for Cosine Annealing
+    parser.add_argument('--t_max', default=120, type=float,
+                        help='T_max value for Cosine Annealing Scheduler.')
+    # Params for Autoscale-lr
+
+    # Train params
+    parser.add_argument('--batch_size', default=24, type=int)
+    parser.add_argument('--num_epochs', default=200, type=int)
+    parser.add_argument('--num_workers', default=6, type=int)
+    parser.add_argument('--start_epochs', default=0, type=int)
+
+    # Params for optimizer
+    parser.add_argument('--optimizer_type', default="SGD", type=str,
+                        help='optimizer_type')
+    # Params for SGD
+    parser.add_argument('--lr', '--learning-rate', default=1e-2, type=float,
+                        help='initial learning rate')
+    parser.add_argument('--momentum', default=0.9, type=float,
+                        help='Momentum value for optim')
+    parser.add_argument('--weight_decay', default=5e-4, type=float,
+                        help='Weight decay for SGD')
+    parser.add_argument('--gamma', default=0.1, type=float,
+                        help='Gamma update for SGD')
+    parser.add_argument('--base_net_lr', default=None, type=float,
+                        help='initial learning rate for base net.')
+    parser.add_argument('--head_lr', default=None, type=float,
+                        help='initial learning rate for the layers not in base net and prediction heads.')
+    # Params for Adam
+
+    # Params for data
+    parser.add_argument('--input_size', default=[224, 224], nargs='+', type=int)  # TODO check list arguments
+    parser.add_argument('--train_datasets', nargs='+', help='Dataset directory path')
+    parser.add_argument('--train_datasets_type', default=['ImageFolder'], nargs='+', help='Dataset type')
+    parser.add_argument('--validation_datasets', nargs='+', help='Dataset directory path')
+    parser.add_argument('--validation_datasets_type', default=['ImageFolder'], nargs='+', help='Dataset, type')
+
+    # Params for model
     parser.add_argument('--net_type', default='Net2')
-    parser.add_argument('--pretrained_model', default='checkpoint/2019-10-22 12:58:25/model_resnet18_8_0.0026_0.9996.pth')
+    parser.add_argument('--freeze_base_net', action='store_true',
+                        help="Freeze base net layers.")
+    parser.add_argument('--freeze_head', action='store_true')
+    parser.add_argument('--pretrained_model', default=None,
+                        help='start epoch will be 0')
+    parser.add_argument('--resume_from', default=None,
+                        help='the checkpoint file to resume from, start epoch will be that')
+    parser.add_argument('--init_type', default='xavier')
+
+    # Params for other
+    parser.add_argument('--cuda_index', default=['0'], type=str, nargs='+')  # TODO check list arguments
+    parser.add_argument('--use_cuda', default=True, type=str2bool)
+    parser.add_argument('--seed', type=int, default=None, help='random seed')
+
+    parser.add_argument('--work_dir', default='checkpoint',
+                        help='the dir to save logs and models')
+
     args = parser.parse_args()
+
+    if args.config:
+        merge_from_file(args, args.config)
+
     return args
 
 
-def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
+def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     since = time.time()
 
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
     min_loss = 99999999
 
-    for epoch in range(total_epochs):
-        print('Epoch {}/{}'.format(epoch, total_epochs - 1))
+    for epoch in range(num_epochs):
+        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
         # print('learning rate is {}'.format(optimizer))
 
@@ -131,7 +178,6 @@ def train_model(model, criterion, optimizer, scheduler, total_epochs=25):
 
 
 def main():
-    global args, work_dir
     args = parse_args()
 
     t = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -139,18 +185,32 @@ def main():
     if not os.path.exists(work_dir):
         os.makedirs(work_dir)
 
-    import sys
+
     sys.stdout = Logger(os.path.join(work_dir, 'log.txt'))
 
     with open(os.path.join(work_dir, 'meta.txt'), 'w') as f:
         for key, value in args.__dict__.items():
             f.write("key:[{}], value:[{}]\r\n".format(key, value))
+    print(args)
 
-    global writer
-    writer = SummaryWriter(os.path.join(work_dir, 'runs'))
-
-    global device
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+    writer = SummaryWriter(os.path.join(work_dir, 'runs'))
+    # writer.add_graph()
+    # TODO add info after each TODO list
+    # TODO net
+
+    # TODO load model
+    # TODO freeze
+    # TODO check multigpu
+    # TODO loss
+    # TODO scheduler
+    # TODO lr and optimizer
+    # TODO transform
+    # TODO datasets
+    # TODO dataloader
+    # TODO train and test loop
+
 
     global dataloaders, dataset_sizes, class_names
     dataloaders, dataset_sizes, class_names = get_dataset(
@@ -181,7 +241,7 @@ def main():
 
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
-    model = train_model(net, criterion, optimizer, exp_lr_scheduler, total_epochs=args.total_epochs)
+    model = train_model(net, criterion, optimizer, exp_lr_scheduler, num_epochs=args.num_epochs)
 
 
 if __name__ == '__main__':

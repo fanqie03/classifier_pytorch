@@ -2,7 +2,9 @@ import shutil
 import os
 import argparse
 from pathlib import Path
-
+"""
+split file
+"""
 
 def get_args():
     parser = argparse.ArgumentParser()
