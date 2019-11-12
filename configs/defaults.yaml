@@ -1,0 +1,24 @@
+model:
+  type: Net2
+  num_classes: 2
+train:
+  freeze_base: false
+  freeze_head: false
+  pretrained_model: ~
+  resume_from: ~
+  init_type: xavier
+device:
+  cuda_index:
+    - '0'
+  use_cuda: true
+data:
+  input_size:
+    - 224
+    - 224
+  train_datasets: null
+  train_datasets_type:
+    - ImageFolder
+  validation_datasets: null
+  validation_datasets_type:
+    - ImageFolder
+optimizer:

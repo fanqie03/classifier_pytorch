@@ -71,7 +71,7 @@ def parse_args():
 
     # Params for model
     parser.add_argument('--net_type', default='Net2')
-    parser.add_argument('--freeze_base_net', action='store_true',
+    parser.add_argument('--freeze_body', action='store_true',
                         help="Freeze base net layers.")
     parser.add_argument('--freeze_head', action='store_true')
     parser.add_argument('--pretrained_model', default=None,
@@ -79,6 +79,11 @@ def parse_args():
     parser.add_argument('--resume_from', default=None,
                         help='the checkpoint file to resume from, start epoch will be that')
     parser.add_argument('--init_type', default='xavier')
+    parser.add_argument('--num_classes', default=2, type=int)
+
+    # Params for loss
+    parser.add_argument('--loss_type', default='CrossEntropyLoss')
+
 
     # Params for other
     parser.add_argument('--cuda_index', default=['0'], type=str, nargs='+')  # TODO check list arguments
@@ -193,55 +198,87 @@ def main():
             f.write("key:[{}], value:[{}]\r\n".format(key, value))
     print(args)
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device(f'cuda:{args.cuda_index[0]}'
+                          if torch.cuda.is_available() and args.use_cuda else 'cpu')
 
     writer = SummaryWriter(os.path.join(work_dir, 'runs'))
     # writer.add_graph()
     # TODO add info after each TODO list
     # TODO net
-
+    model = eval(args.net_type)(num_classes=args.num_classes)
+    model = model.to(device)
+    print(f'use model {args.net_type}, num_classes is {args.num_classes}')
     # TODO load model
+    if args.resume_from:
+        m = torch.load(args.resume_from)
+        model.load_state_dict(m['model'])
+        args.start_epoch = m['epoch']
+        optimizer_state_dict = m['optimizer']
+        best_score = m['best_score']
+        print(f'load model from {args.resume_from}, start_epoch is {args.start_epoch}, best_score is {best_score}')
+    if args.pretrained_model:
+        m = torch.load(args.pretrained_model)
+        model.load_state_dict(m['model'])
+        best_score = m['best_score']
+        print(f'load model from {args.resume_from}, best_score is {best_score}')
+
     # TODO freeze
+    if args.freeze_body and getattr(model, 'body'):
+        model.body.parameters()
+        print(f'freeze model body')
+    if args.freeze_head and getattr(model, 'head'):
+        model.head.parameters()
+        print(f'freeze model head')
     # TODO check multigpu
+    if args.use_cuda and len(args.cuda_index) > 1:
+        model = nn.DataParallel(model, args.cuda_index)
+        print(f'use multi gpu {args.cuda_index}')
     # TODO loss
+    if args.loss_type == 'CrossEntropyLoss':
+        loss = torch.nn.CrossEntropyLoss()
+    print(f'use loss type is {args.loss_type}')
     # TODO scheduler
+    # scheduler = eval()
     # TODO lr and optimizer
+    # if args.optimizer_type ==
+    optimizer = eval(args.optimizer_type)()
     # TODO transform
+
     # TODO datasets
     # TODO dataloader
     # TODO train and test loop
 
 
-    global dataloaders, dataset_sizes, class_names
-    dataloaders, dataset_sizes, class_names = get_dataset(
-        batch_size=args.batch_size, num_workers=args.num_workers,
-        data_root=args.data_root)
-    if args.net_type.startswith('get_pretrained_net'):
-        net = eval(args.net_type)
-    else:
-        net = eval(args.net_type)(len(class_names))
-
-    if torch.cuda.device_count() > 1:
-        print("Let's use", torch.cuda.device_count(), "GPUs!")
-        # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
-        net = nn.DataParallel(net)
-
-    net.to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-    # optimizer = optim.Adam(net.parameters(), )
-
-    if args.pretrained_model:
-        m = torch.load(args.pretrained_model)
-        net.load_state_dict(m['model_state_dict'])
-        print('load pretrained model : ' + args.pretrained_model)
-        if m.get('optimizer_state_dict') is not None:
-            optimizer.load_state_dict(m['optimizer_state_dict'])
-            print('load optimizer')
-
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
-
-    model = train_model(net, criterion, optimizer, exp_lr_scheduler, num_epochs=args.num_epochs)
+    # global dataloaders, dataset_sizes, class_names
+    # dataloaders, dataset_sizes, class_names = get_dataset(
+    #     batch_size=args.batch_size, num_workers=args.num_workers,
+    #     data_root=args.data_root)
+    # if args.net_type.startswith('get_pretrained_net'):
+    #     net = eval(args.net_type)
+    # else:
+    #     net = eval(args.net_type)(len(class_names))
+    #
+    # if torch.cuda.device_count() > 1:
+    #     print("Let's use", torch.cuda.device_count(), "GPUs!")
+    #     # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
+    #     net = nn.DataParallel(net)
+    #
+    # net.to(device)
+    # criterion = nn.CrossEntropyLoss()
+    # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    # # optimizer = optim.Adam(net.parameters(), )
+    #
+    # if args.pretrained_model:
+    #     m = torch.load(args.pretrained_model)
+    #     net.load_state_dict(m['model_state_dict'])
+    #     print('load pretrained model : ' + args.pretrained_model)
+    #     if m.get('optimizer_state_dict') is not None:
+    #         optimizer.load_state_dict(m['optimizer_state_dict'])
+    #         print('load optimizer')
+    #
+    # exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+    #
+    # model = train_model(net, criterion, optimizer, exp_lr_scheduler, num_epochs=args.num_epochs)
 
 
 if __name__ == '__main__':
