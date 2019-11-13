@@ -3,12 +3,14 @@ import json
 import os
 import sys
 import time
+import importlib
 
 import torch
 import yaml
 
 if __name__ == '__main__':
     import argparse
+
     parser = argparse.ArgumentParser(prog='PROG', add_help=False)
     group1 = parser.add_argument_group('group1', 'group1 description')
     group1.add_argument('foo', help='foo help')
@@ -19,11 +21,17 @@ if __name__ == '__main__':
 
 
 def merge_from_file(_dict, file: str):
-    with open(file, 'r') as f:
-        if file.endswith('.json'):
+    if file.endswith('.json'):
+        with open(file, 'r') as f:
             _dict.update(json.load(f))
-        elif file.endswith('.yml') or file.endswith('.yaml'):
-            _dict.update(yaml.unsafe_load(f))  # TODO check
+    elif file.endswith('.yml') or file.endswith('.yaml'):
+        with open(file, 'r') as f:
+            _dict.update(yaml.unsafe_load(f))
+    elif file.endswith('.py'):
+        file = file[:-3]
+        cfg = importlib.import_module(file)
+        cfg = {k: v for k, v in cfg.__dict__.items() if not k.startswith('_')}
+        _dict.update(cfg)
     return _dict
 
 
@@ -31,6 +39,8 @@ def test_merge_from_file():
     _dict = {}
     print(merge_from_file(_dict.copy(), 'demo.json'))
     print(merge_from_file(_dict.copy(), 'demo.yaml'))
+    sys.path.append('..')
+    print(merge_from_file(_dict.copy(), 'configs.helmet.py'))
 
 
 if __name__ == '__main__':
