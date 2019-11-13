@@ -3,6 +3,8 @@ import copy
 import time
 import os
 import sys
+import copy
+import subprocess
 
 import torch
 import torch.optim as optim
@@ -16,12 +18,15 @@ from torchvision.datasets import ImageFolder
 
 from backbone import *
 from datasets.folder import get_dataset
+from tools.builder import build_transform
 
+import random
 from tools.misc import *
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='train classifier')
-    parser.add_argument('--config', help='train config file path')
+    parser.add_argument('--config', help='train config file path', default='configs/defaults.yaml')
 
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument(
@@ -120,32 +125,122 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     return model
 
 
+def train(model, criterion, optimizer, loader, device, epoch, writer=None):
+    model.train()
+    running_loss = 0.0
+    running_acc = 0.0
+    num = 0
+    for i, data in enumerate(loader):
+        num += 1
+        # if random.random() > 0.8:
+        # print('\r' + '.' * (i + 1), end='')
+        images, labels = data
+        images = images.to(device)
+        labels = labels.to(device)
+
+        optimizer.zero_grad()
+        score = model(images)
+        # TODO check softmax
+        loss = criterion(score, labels)
+        loss.backward()
+        optimizer.step()
+
+        # acc=
+        _, preds = torch.max(score, 1)
+
+        acc = torch.sum(preds == labels.data) / loader.batch_size
+        loss = loss.item()
+        running_acc += acc
+        running_loss += loss
+
+    running_acc = running_acc / num
+    running_loss = running_loss / num
+
+    step = (epoch + 1) * len(loader)
+    writer.add_scalar('train_loss', running_loss, global_step=step)
+    writer.add_scalar('train_acc', running_acc, global_step=step)
+
+    return running_loss, running_acc
+
+
+def test(model, criterion, loader, device, global_step, writer=None, ):
+    model.eval()
+    running_loss = 0.0
+    running_acc = 0
+    num = 0
+    for i, data in enumerate(loader):
+        images, labels = data
+        images = images.to(device)
+        labels = labels.to(device)
+        num += 1
+
+        with torch.no_grad():
+            score = model(images)
+            loss = criterion(score, labels)
+            _, preds = torch.max(score, 1)
+
+            loss = loss.item()
+            acc = torch.sum(preds == labels.data) / loader.batch_size
+            running_acc += acc
+            running_loss += loss
+
+    running_loss /= num
+    running_acc /= num
+
+    writer.add_scalar('val_loss', running_loss, global_step=global_step)
+    writer.add_scalar('val_acc', running_acc, global_step=global_step)
+
+    return running_loss, running_acc
+
+
 def main():
     cfg = parse_args()
+    _cfg = copy.deepcopy(cfg)
 
-    t = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    t = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
     work_dir = os.path.join(cfg.train.work_dir, t)
+    ckpt_dir = os.path.join(work_dir, 'ckpt')
+    model_dir = os.path.join(work_dir, 'model')
     if not os.path.exists(work_dir):
         os.makedirs(work_dir)
+    if not os.path.exists(ckpt_dir):
+        os.makedirs(ckpt_dir)
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
 
-    sys.stdout = Logger(os.path.join(work_dir, 'log.txt'))
+    sys.stdout = Logger(os.path.join(work_dir, 'log'))
 
     with open(os.path.join(work_dir, 'meta.txt'), 'w') as f:
-        pprint.pprint(cfg, f)
+        pprint(cfg, f)
     print(cfg)
 
     device = torch.device(f'cuda:{cfg.device.cuda_index[0]}'
                           if torch.cuda.is_available() and cfg.device.use_cuda else 'cpu')
 
-    writer = SummaryWriter(os.path.join(work_dir, 'runs'))
-    # writer.add_graph()
-    # TODO add info after each TODO list
-    # TODO net
+    writer_dir = os.path.join(work_dir, 'runs')
+    writer = SummaryWriter(writer_dir, flush_secs=1)
+    # writer.add_hparams(cfg.__dict__)
+    if cfg.train.open_tensorboard:
+        subprocess.Popen(f'tensorboard --logdir {writer_dir}', shell=True)
+    # writer.f
+    #  net
     print(f'use model {cfg.model}')
     model = eval(cfg.model.pop('type'))(**cfg.model)
-    model = model.to(device)
-    # TODO load model
+    demo_data = torch.ones([1, 3] + cfg.data.input_size)
+    if cfg.get('data') and cfg.data.get('input_size'):
+        writer.add_graph(model, torch.ones([1, 3] + cfg.data.input_size))
+        print(f'Add Graph')
 
+    # onnx_path = os.path.join(work_dir, f'{_cfg.model.type}.onnx')
+    # torch.onnx.export(model, demo_data, onnx_path)
+    # writer.add_onnx_graph(onnx_path)
+
+    with open(os.path.join(work_dir, 'model.txt'), 'w') as f:
+        print(model, file=f)
+
+    model = model.to(device)
+
+    #  load model
     if cfg.train.resume_from:
         print(f'resume model {cfg.train.resume_from}')
         m = torch.load(cfg.train.resume_from)
@@ -153,7 +248,8 @@ def main():
         cfg.train.start_epoch = m['epoch']
         optimizer_state_dict = m['optimizer']
         best_score = m['best_score']
-        print(f'load model from {cfg.train.resume_from}, start_epoch is {cfg.train.start_epoch}, best_score is {best_score}')
+        print(
+            f'load model from {cfg.train.resume_from}, start_epoch is {cfg.train.start_epoch}, best_score is {best_score}')
     if cfg.train.pretrained_model:
         print(f'pretrained model {cfg.train.pretrained_model}')
         m = torch.load(cfg.train.pretrained_model)
@@ -161,45 +257,76 @@ def main():
         best_score = m['best_score']
         print(f'load model from {cfg.train.resume_from}, best_score is {best_score}')
 
-    # TODO freeze
+    #  freeze
     if cfg.train.freeze_body and getattr(model, 'body'):
         model.body.parameters()
         print(f'freeze model body')
     if cfg.train.freeze_head and getattr(model, 'head'):
         model.head.parameters()
         print(f'freeze model head')
-    # TODO check multigpu
+    #  check multigpu
     if cfg.device.use_cuda and len(cfg.device.cuda_index) > 1:
         model = nn.DataParallel(model, cfg.device.cuda_index)
         print(f'use multi gpu {cfg.device.cuda_index}')
-    # TODO loss
+    #  loss
     print(f'use loss {cfg.loss}')
     loss = eval(cfg.loss.pop('type'))(**cfg.loss)
-    # TODO scheduler
-    # scheduler = eval()
-    # TODO lr and optimizer
+    #  lr and optimizer
+    cfg.optimizer.params = model.parameters()
     optimizer = eval(cfg.optimizer.pop('type'))(**cfg.optimizer)
-    # TODO transform
-    transform=target_transform=None
-    # TODO datasets
-    cfg.train_datasets['transform'] =transform
-    cfg.train_datasets['target_transform'] = target_transform
-    dataset = ConcatDataset([eval(c.pop('type')(**c)) for c in cfg.train_datasets])
-    cfg.validation_datasets['transform'] = transform
-    cfg.validation_datasets['target_transform'] = target_transform
-    val_dataset = [eval(c.pop('type')(**c)) for c in cfg.validation_datasets]
-    # TODO dataloader
-    cfg.dataloader['dataset'] = dataset
+    #  scheduler
+    cfg.scheduler.optimizer = optimizer
+    scheduler = eval(cfg.scheduler.pop('type'))(**cfg.scheduler)
+    #  transform
+    transform = target_transform = None
+    val_transform = val_target_transform = None
+    transform = val_transform = build_transform(cfg.transform)
+    #  datasets
+    for d in cfg.train_datasets:
+        d.transform = transform
+        d.target_transform = target_transform
+    dataset = ConcatDataset([eval(c.pop('type'))(**c) for c in cfg.train_datasets])
+    print(f'total train datasets is {len(dataset)}')
+    for d in cfg.val_datasets:
+        d.transform = val_transform
+        d.target_transform = val_target_transform
+    val_dataset = ConcatDataset([eval(c.pop('type'))(**c) for c in cfg.val_datasets])
+    print(f'total validation datasets is {len(val_dataset)}')
+    #  dataloader
+    cfg.dataloader.dataset = dataset
     dataloader = DataLoader(**cfg.dataloader)
-    cfg.dataloader['dataset'] = val_dataset
+    cfg.dataloader.dataset = val_dataset
     val_dataloader = DataLoader(**cfg.dataloader)
-    # TODO train and test loop
-    # hook.before_train()
-    # for iter in range(start_iter, max_iter):
-    #     hook.before_step()
-    #     trainer.run_step()
-    #     hook.after_step()
-    # hook.after_train()
+    #  train and test loop
+    opt = cfg.train
+    print(f'Start training from epoch {opt.start_epoch}.')
+    for epoch in range(opt.start_epoch, opt.num_epochs):
+        # 学习率调整
+        if epoch != opt.start_epoch:
+            scheduler.step()
+        print(f'lr rate :{optimizer.param_groups[0]["lr"]}')
+        writer.add_scalar('lr', optimizer.param_groups[0]["lr"], epoch * len(dataloader))
+
+        train_loss, train_acc = train(model, loss, optimizer, dataloader, device, epoch, writer)
+
+        if epoch % opt.val_epochs == 0 or epoch == opt.num_epochs - 1:
+            print(f'lr rate :{optimizer.param_groups[0]["lr"]}')
+
+            val_loss, val_acc = test(model, loss, val_dataloader, device, (epoch + 1) * len(dataloader), writer)
+
+            print(
+                f'Epoch: {epoch}, '
+                f'Train Loss: {train_loss:.4f}, '
+                f'Train Acc: {train_acc:.4f}, '
+                f'Validation Loss: {val_loss:.4f}, '
+                f'Validation Accuracy: {val_acc:.4f}'
+            )
+
+            ckpt_path = os.path.join(ckpt_dir, f'{_cfg.model.type}-Epoch-{epoch}-Loss-{val_loss}.pth')
+            model_path = os.path.join(model_dir, f'{_cfg.model.type}-Epoch-{epoch}-Loss-{val_loss}.pth')
+            save_checkpoint(epoch, model.state_dict(), scheduler.state_dict(), val_loss, ckpt_path, model_path)
+            print(f'Saved model {model_path}')
+            print(f'Saved checkpoint {ckpt_path}')
 
 
 if __name__ == '__main__':

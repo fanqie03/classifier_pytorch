@@ -43,7 +43,7 @@ class Logger(object):
         self.log = open(filename, "a")
 
     def write(self, message):
-        if message != '\n':
+        if message not in ('\n', '') and not message.startswith('\r'):
             message = str(time.asctime()) + ' | ' + message
         self.terminal.write(message)
         self.log.write(message)

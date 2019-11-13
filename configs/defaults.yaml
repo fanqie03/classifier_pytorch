@@ -1,56 +1,62 @@
-model:
-  type: Net2
-  num_classes: 2
-
-scheduler:
-  type: MultiStep
-
-device:
-  cuda_index:
-    - '0'
-  use_cuda: true
-
-optimizer:
-  type: nn.SGD
-  lr: 1e-2
-  momentum: 0.9
-
-loss:
-  type: CrossEntropyLoss
 
 train:
-  freeze_base: false
+  freeze_body: false
   freeze_head: false
   pretrained_model: ~
   resume_from: ~
   init_type: xavier
   work_dir: checkpoint
   num_epochs: 200
-  batch_size: 24
-  start_epochs: 0
+  batch_size: 64
+  start_epoch: 0
+  use_tensorboard: false
+  val_epochs: 1
+  open_tensorboard: true
 
+#  注释性质
 data:
   input_size:
     - 224
     - 224
-  train_datasets:
-    - null
-  train_datasets_type:
-    - ImageFolder
-  validation_datasets:
-    - null
-  validation_datasets_type:
-    - ImageFolder
-  num_worker: 4
-  seed: ~
+  type: rgb
+  mean: 0
+  std: 255
+
+device:
+  cuda_index:
+    - '0'
+  use_cuda: true
+
+
+model:
+  type: Net2
+  num_classes: 2
+
+scheduler:
+  type: torch.optim.lr_scheduler.StepLR
+  step_size: 7
+  gamma: 0.1
+
+optimizer:
+  type: optim.SGD
+  lr: 0.001
+  momentum: 0.9
+
+loss:
+  type: nn.CrossEntropyLoss
 
 transform: ~
 target_transform: ~
+val_transform: ~
+val_target_transform: ~
+
 train_datasets:
   - type: ImageFolder
-validation_datasets:
+    root: /home/cmf/datasets/helmet/helmet_all/train_val/train
+val_datasets:
   - type: ImageFolder
+    root: /home/cmf/datasets/helmet/helmet_all/train_val/val
 dataloader:
-  batch_size: 24
-  num_worker: 4
+  batch_size: 64
+  num_workers: 4
   shuffle: true
