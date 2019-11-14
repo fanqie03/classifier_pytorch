@@ -90,12 +90,13 @@ class Timer:
         return interval.total_seconds()
 
 
-def save_checkpoint(epoch, net_state_dict, optimizer_state_dict, best_score, checkpoint_path, model_path):
+def save_checkpoint(epoch, net_state_dict, optimizer_state_dict, best_score, classes, checkpoint_path, model_path):
     torch.save({
         'epoch': epoch,
         'model': net_state_dict,
         'optimizer': optimizer_state_dict,
-        'best_score': best_score
+        'best_score': best_score,
+        'classes': classes
     }, checkpoint_path)
     torch.save(net_state_dict, model_path)
 

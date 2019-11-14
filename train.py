@@ -44,87 +44,6 @@ def parse_args():
     return args
 
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
-    since = time.time()
-
-    best_model_wts = copy.deepcopy(model.state_dict())
-    best_acc = 0.0
-    min_loss = 99999999
-
-    for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
-        # print('learning rate is {}'.format(optimizer))
-
-        # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()  # Set model to training mode
-            else:
-                model.eval()  # Set model to evaluate mode
-
-            running_loss = 0.0
-            running_corrects = 0
-
-            # Iterate over data.
-            for inputs, labels in dataloaders[phase]:
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-
-                # zero the parameter gradients
-                optimizer.zero_grad()
-
-                # forward
-                # track history if only in train
-                with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
-
-                    # backward + optimize only if in training phase
-                    if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
-
-                # statistics
-                running_loss += loss.item() * inputs.size(0)
-                running_corrects += torch.sum(preds == labels.data)
-
-            scheduler.step()
-            epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_acc = running_corrects.double() / dataset_sizes[phase]
-
-            print('{} Loss: {:.4f} Acc: {:.4f}'.format(
-                phase, epoch_loss, epoch_acc))
-
-            writer.add_scalar('{} Loss'.format(phase), epoch_loss, epoch)
-            writer.add_scalar('{} Acc'.format(phase), epoch_acc, epoch)
-
-            # deep copy the model
-            if phase == 'val' and (epoch_acc > best_acc or epoch_loss < min_loss):
-                best_acc = epoch_acc
-                min_loss = epoch_loss
-                best_model_wts = copy.deepcopy(model.state_dict())
-                model_pth = os.path.join(work_dir,
-                                         'model_{}_{}_{:.4f}_{:.4f}.pth'.format(args.net_type, epoch, epoch_loss,
-                                                                                epoch_acc))
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    # 'optimizer_state_dict': optimizer.state_dict(),
-                    'classes': class_names
-                }, model_pth)
-
-    time_elapsed = time.time() - since
-    print('Training complete in {:.0f}m {:.0f}s'.format(
-        time_elapsed // 60, time_elapsed % 60))
-    print('Best val Acc: {:4f}, min loss {:4f}'.format(best_acc, min_loss))
-
-    # load best model weights
-    model.load_state_dict(best_model_wts)
-    return model
-
-
 def train(model, criterion, optimizer, loader, device, epoch, writer=None):
     model.train()
     running_loss = 0.0
@@ -145,20 +64,24 @@ def train(model, criterion, optimizer, loader, device, epoch, writer=None):
         loss.backward()
         optimizer.step()
 
-        # acc=
         _, preds = torch.max(score, 1)
-
-        acc = torch.sum(preds == labels.data) / loader.batch_size
+        acc = torch.sum(preds == labels.data).detach().cpu().numpy() * 1.0
+        acc = acc / len(images)
         loss = loss.item()
+
+        step = epoch * len(loader) + i
+        writer.add_scalar('train_loss', loss, global_step=step)
+        writer.add_scalar('train_acc', acc, global_step=step)
+
         running_acc += acc
         running_loss += loss
 
     running_acc = running_acc / num
     running_loss = running_loss / num
 
-    step = (epoch + 1) * len(loader)
-    writer.add_scalar('train_loss', running_loss, global_step=step)
-    writer.add_scalar('train_acc', running_acc, global_step=step)
+    # step = (epoch + 1) * len(loader)
+    # writer.add_scalar('train_loss', running_loss, global_step=step)
+    # writer.add_scalar('train_acc', running_acc, global_step=step)
 
     return running_loss, running_acc
 
@@ -179,8 +102,9 @@ def test(model, criterion, loader, device, global_step, writer=None, ):
             loss = criterion(score, labels)
             _, preds = torch.max(score, 1)
 
+            acc = torch.sum(preds == labels.data).detach().cpu().numpy() * 1.0
+            acc = acc / len(images)
             loss = loss.item()
-            acc = torch.sum(preds == labels.data) / loader.batch_size
             running_acc += acc
             running_loss += loss
 
@@ -238,8 +162,6 @@ def main():
     with open(os.path.join(work_dir, 'model.txt'), 'w') as f:
         print(model, file=f)
 
-    model = model.to(device)
-
     #  load model
     if cfg.train.resume_from:
         print(f'resume model {cfg.train.resume_from}')
@@ -249,13 +171,15 @@ def main():
         optimizer_state_dict = m['optimizer']
         best_score = m['best_score']
         print(
-            f'load model from {cfg.train.resume_from}, start_epoch is {cfg.train.start_epoch}, best_score is {best_score}')
+            f'resume model from {cfg.train.resume_from}, start_epoch is {cfg.train.start_epoch}, best_score is {best_score}')
     if cfg.train.pretrained_model:
         print(f'pretrained model {cfg.train.pretrained_model}')
         m = torch.load(cfg.train.pretrained_model)
         model.load_state_dict(m['model'])
         best_score = m['best_score']
-        print(f'load model from {cfg.train.resume_from}, best_score is {best_score}')
+        print(f'load pretrained model from {cfg.train.pretrained_model}, best_score is {best_score}')
+
+    model = model.to(device)
 
     #  freeze
     if cfg.train.freeze_body and getattr(model, 'body'):
@@ -282,16 +206,21 @@ def main():
     val_transform = val_target_transform = None
     transform = val_transform = build_transform(cfg.transform)
     #  datasets
+
     for d in cfg.train_datasets:
         d.transform = transform
         d.target_transform = target_transform
+
     dataset = ConcatDataset([eval(c.pop('type'))(**c) for c in cfg.train_datasets])
+    print(f'train dataset classes is {[getattr(dataset, "classes") for dataset in dataset.datasets]}')
+    classes = dataset.datasets[0].classes
     print(f'total train datasets is {len(dataset)}')
     for d in cfg.val_datasets:
         d.transform = val_transform
         d.target_transform = val_target_transform
     val_dataset = ConcatDataset([eval(c.pop('type'))(**c) for c in cfg.val_datasets])
     print(f'total validation datasets is {len(val_dataset)}')
+    print(f'validation dataset classes is {[getattr(dataset, "classes") for dataset in val_dataset.datasets]}')
     #  dataloader
     cfg.dataloader.dataset = dataset
     dataloader = DataLoader(**cfg.dataloader)
@@ -324,7 +253,15 @@ def main():
 
             ckpt_path = os.path.join(ckpt_dir, f'{_cfg.model.type}-Epoch-{epoch}-Loss-{val_loss}.pth')
             model_path = os.path.join(model_dir, f'{_cfg.model.type}-Epoch-{epoch}-Loss-{val_loss}.pth')
-            save_checkpoint(epoch, model.state_dict(), scheduler.state_dict(), val_loss, ckpt_path, model_path)
+
+            score = {
+                'train_loss': train_loss,
+                'train_acc': train_acc,
+                'val_loss': val_loss,
+                'val_acc': val_acc
+            }
+
+            save_checkpoint(epoch, model.state_dict(), scheduler.state_dict(), score, classes, ckpt_path, model_path)
             print(f'Saved model {model_path}')
             print(f'Saved checkpoint {ckpt_path}')
 

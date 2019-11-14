@@ -2,8 +2,8 @@
 train:
   freeze_body: false
   freeze_head: false
-  pretrained_model: ~
-  resume_from: ~
+  pretrained_model:
+  resume_from:
   init_type: xavier
   work_dir: checkpoint
   num_epochs: 200
