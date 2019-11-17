@@ -38,16 +38,26 @@ scheduler:
   gamma: 0.1
 
 optimizer:
-  type: optim.SGD
+  type: torch.optim.SGD
   lr: 0.001
   momentum: 0.9
 
 loss:
   type: nn.CrossEntropyLoss
 
-transform: ~
+transform:
+  - type: Resize
+    size: 224
+  - type: ColorJitter
+    saturation: 0.5
+    hue: 0.1
+#  - type: RandomCrop
+#    size: 49
+  - type: ToTensor
 target_transform: ~
-val_transform: ~
+val_transform:
+  - type: Resize
+    size: 224
 val_target_transform: ~
 
 train_datasets:

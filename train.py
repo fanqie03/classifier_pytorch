@@ -1,48 +1,17 @@
-import argparse
-import copy
-import time
-import os
-import sys
 import copy
 import subprocess
 
-import torch
-import torch.optim as optim
-from torch import nn
-from torch.optim import lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 from easydict import EasyDict as edict
 from pprint import pprint
 from torch.utils.data import DataLoader, ConcatDataset
-from torchvision.datasets import ImageFolder
 
-from backbone import *
-from datasets.folder import get_dataset
+from classify.backbone import *
 from tools.builder import build_transform
 
-import random
-from tools.misc import *
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description='train classifier')
-    parser.add_argument('--config', help='train config file path', default='configs/defaults.yaml')
-
-    parser.add_argument('--local_rank', type=int, default=0)
-    parser.add_argument(
-        '--autoscale-lr',
-        action='store_true',
-        help='automatically scale lr with the number of gpus')
-
-    args = parser.parse_args()
-
-    args = edict(args.__dict__)
-
-    if args.config:
-        merge_from_file(args, args.config)
-
-    return args
-
+from classify.utils.misc import *
+from classify import get_default_args
+from torchvision.datasets import ImageFolder
 
 def train(model, criterion, optimizer, loader, device, epoch, writer=None):
     model.train()
@@ -118,7 +87,7 @@ def test(model, criterion, loader, device, global_step, writer=None, ):
 
 
 def main():
-    cfg = parse_args()
+    cfg = get_default_args()
     _cfg = copy.deepcopy(cfg)
 
     t = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
