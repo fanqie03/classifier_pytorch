@@ -7,6 +7,7 @@ import importlib
 
 import torch
 import yaml
+import torch.nn as nn
 
 if __name__ == '__main__':
     import argparse
@@ -18,6 +19,12 @@ if __name__ == '__main__':
     group2.add_argument('--bar', help='bar help')
     parser.print_help()
     print(parser.parse_args())
+
+
+def init_weight(model):
+    for m in model.modules():
+        if isinstance(m, (nn.Conv2d, nn.Linear)):
+            nn.init.xavier_uniform_(m.weight)
 
 
 def merge_from_file(_dict, file: str):
