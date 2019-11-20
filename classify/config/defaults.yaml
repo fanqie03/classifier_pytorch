@@ -29,7 +29,7 @@ device:
 
 
 model:
-  type: Net2
+  type: Mb_Tiny_RFB
   num_classes: 2
 
 scheduler:
