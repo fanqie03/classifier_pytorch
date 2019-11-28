@@ -16,7 +16,7 @@ val_datasets = [
 
 
 model = dict(
-    type='mobilenet_v2',
+    type='AllconvNet',
     num_classes=2
 )
 
