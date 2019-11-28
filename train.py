@@ -1,5 +1,6 @@
 import copy
 import subprocess
+import datetime
 
 from torch.utils.tensorboard import SummaryWriter
 from easydict import EasyDict as edict
@@ -14,13 +15,37 @@ from classify import get_default_args
 from torchvision.datasets import ImageFolder
 
 
+global_steps=0
+log_dict = {}
+work_dir = None
+log_json_file = None
+
+
+def add_mrtric_log(file, log):
+    """
+
+    :param file: str or io
+    :param log: dict
+    :return:
+    """
+    log = str(log) + '\r\n'
+    if isinstance(file, str):
+        with open(file, 'a') as f:
+            f.write(log)
+    else:
+        file.write(log)
+
+
 def train(model, criterion, optimizer, loader, device, epoch, writer=None):
+    global global_steps, log_json_file, log_dict
+
     model.train()
     running_loss = 0.0
     running_acc = 0.0
     num = 0
     for i, data in enumerate(loader):
         num += 1
+        global_steps+=1
         # if random.random() > 0.8:
         # print('\r' + '.' * (i + 1), end='')
         images, labels = data
@@ -49,6 +74,13 @@ def train(model, criterion, optimizer, loader, device, epoch, writer=None):
     running_acc = running_acc / num
     running_loss = running_loss / num
 
+    log_dict['mode'] = 'train'
+    log_dict['loss'] = running_loss
+    log_dict['acc'] = running_acc
+    log_dict['time'] = time.asctime()
+
+    add_mrtric_log(log_json_file, log_dict)
+
     # step = (epoch + 1) * len(loader)
     # writer.add_scalar('train_loss', running_loss, global_step=step)
     # writer.add_scalar('train_acc', running_acc, global_step=step)
@@ -57,6 +89,8 @@ def train(model, criterion, optimizer, loader, device, epoch, writer=None):
 
 
 def test(model, criterion, loader, device, global_step, writer=None, ):
+    global global_steps, log_json_file, log_dict
+
     model.eval()
     running_loss = 0.0
     running_acc = 0
@@ -84,6 +118,11 @@ def test(model, criterion, loader, device, global_step, writer=None, ):
     writer.add_scalar('val_loss', running_loss, global_step=global_step)
     writer.add_scalar('val_acc', running_acc, global_step=global_step)
 
+    log_dict['mode'] = 'val'
+    log_dict['loss'] = running_loss
+    log_dict['acc'] = running_acc
+    log_dict['time'] = time.asctime()
+
     return running_loss, running_acc
 
 
@@ -92,6 +131,7 @@ def main():
     _cfg = copy.deepcopy(cfg)
 
     t = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+    global log_json_file
     work_dir = os.path.join(cfg.train.work_dir, t)
     ckpt_dir = os.path.join(work_dir, 'ckpt')
     model_dir = os.path.join(work_dir, 'model')
@@ -103,6 +143,8 @@ def main():
         os.makedirs(model_dir)
 
     sys.stdout = Logger(os.path.join(work_dir, 'log'))
+
+    log_json_file = os.path.join(work_dir, 'log.json')
 
     with open(os.path.join(work_dir, 'meta.txt'), 'w') as f:
         pprint(cfg, f)
@@ -207,7 +249,10 @@ def main():
             # 学习率调整
             if epoch != opt.start_epoch:
                 scheduler.step()
-            print(f'lr rate :{optimizer.param_groups[0]["lr"]}')
+            lr = optimizer.param_groups[0]["lr"]
+            print(f'lr rate :{lr}')
+            log_dict['lr'] = lr
+            log_dict['epoch'] = epoch
             writer.add_scalar('lr', optimizer.param_groups[0]["lr"], epoch * len(dataloader))
 
             train_loss, train_acc = train(model, loss, optimizer, dataloader, device, epoch, writer)
@@ -235,7 +280,8 @@ def main():
                     'val_acc': val_acc
                 }
 
-                save_checkpoint(epoch, model.state_dict(), scheduler.state_dict(), score, classes, ckpt_path, model_path)
+                save_checkpoint(epoch, model.state_dict(), scheduler.state_dict(), score, classes, ckpt_path,
+                                model_path)
                 print(f'Saved model {model_path}')
                 print(f'Saved checkpoint {ckpt_path}')
     except Exception as e:
