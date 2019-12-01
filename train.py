@@ -78,6 +78,7 @@ def train(model, criterion, optimizer, loader, device, epoch, writer=None):
     log_dict['loss'] = running_loss
     log_dict['acc'] = running_acc
     log_dict['time'] = time.asctime()
+    log_dict['global_step'] = global_steps
 
     add_mrtric_log(log_json_file, log_dict)
 
