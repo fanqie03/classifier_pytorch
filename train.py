@@ -54,6 +54,7 @@ def train(model, criterion, optimizer, loader, device, epoch, writer=None):
 
         optimizer.zero_grad()
         score = model(images)
+        print(score)
         # TODO check softmax
         loss = criterion(score, labels)
         loss.backward()
@@ -104,9 +105,10 @@ def test(model, criterion, loader, device, global_step, writer=None, ):
 
         with torch.no_grad():
             score = model(images)
+            print(score)
             loss = criterion(score, labels)
             _, preds = torch.max(score, 1)
-
+            # print(_, preds)
             acc = torch.sum(preds == labels.data).detach().cpu().numpy() * 1.0
             acc = acc / len(images)
             loss = loss.item()
@@ -221,7 +223,9 @@ def main():
         #  transform
         transform = target_transform = None
         val_transform = val_target_transform = None
-        transform = val_transform = build_transform(cfg.transform)
+
+        transform = build_transform(cfg.transform)
+        val_transform = build_transform(cfg.val_transform)
         #  datasets
 
         for d in cfg.train_datasets:

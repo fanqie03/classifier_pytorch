@@ -58,6 +58,7 @@ target_transform: ~
 val_transform:
   - type: Resize
     size: 224
+  - type: ToTensor
 val_target_transform: ~
 
 train_datasets:
