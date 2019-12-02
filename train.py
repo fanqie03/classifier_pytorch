@@ -54,7 +54,7 @@ def train(model, criterion, optimizer, loader, device, epoch, writer=None):
 
         optimizer.zero_grad()
         score = model(images)
-        print(score)
+        # print(score)
         # TODO check softmax
         loss = criterion(score, labels)
         loss.backward()
@@ -105,10 +105,11 @@ def test(model, criterion, loader, device, global_step, writer=None, ):
 
         with torch.no_grad():
             score = model(images)
-            print(score)
+            # print(score)
             loss = criterion(score, labels)
             _, preds = torch.max(score, 1)
-            # print(_, preds)
+            print(preds.detach().cpu().numpy().tolist())
+            print(labels.data.cpu().numpy().tolist())
             acc = torch.sum(preds == labels.data).detach().cpu().numpy() * 1.0
             acc = acc / len(images)
             loss = loss.item()
@@ -213,6 +214,7 @@ def main():
             print(f'use multi gpu {cfg.device.cuda_index}')
         #  loss
         print(f'use loss {cfg.loss}')
+        cfg.loss.weight = torch.Tensor(cfg.loss.weight).to(device) if cfg.loss.get('weight') is not None else None
         loss = eval(cfg.loss.pop('type'))(**cfg.loss)
         #  lr and optimizer
         cfg.optimizer.params = model.parameters()

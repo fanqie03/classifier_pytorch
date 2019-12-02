@@ -47,7 +47,7 @@ if __name__ == '__main__':
     cfg = get_default_args()
     # transforms = build_transforms(cfg.transform)
     datasets = build_datasets(cfg)
-    loader = DataLoader(datasets, batch_size=32, num_workers=1)
+    loader = DataLoader(datasets, batch_size=32, num_workers=1, shuffle=True)
     for i, (images, labels) in enumerate(loader):
         # print(i)
         out = torchvision.utils.make_grid(images)

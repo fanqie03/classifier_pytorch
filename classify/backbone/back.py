@@ -267,6 +267,18 @@ def mobilenet_v2(num_classes):
     return model
 
 
+def squeezenet1_1(num_classes):
+    model = torchvision.models.squeezenet1_1(pretrained=True)
+    model.classifier = nn.Sequential(
+        nn.Dropout(p=0.5, inplace=False),
+        nn.Conv2d(512, num_classes, kernel_size=(1, 1), stride=(1, 1)),
+        nn.ReLU(inplace=True),
+        nn.AdaptiveAvgPool2d(output_size=(1, 1))
+    )
+    init_weight(model.classifier)
+    return model
+
+
 class Net(nn.Module):
     """
     Best val Acc: 0.777027

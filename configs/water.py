@@ -1,6 +1,8 @@
 train_datasets = [
     dict(type='ImageFolder',
          root='/home/cmf/datasets/water/train_val/train'),
+    dict(type='ImageFolder',
+         root='/home/cmf/datasets/water/train_val2/train'),
     # dict(type='ImageFolder',
     #      root='/home/cmf/w_public/mmdetection/data/extract_video_tayg_0.97/train'),
     # dict(type='ImageFolder',
@@ -11,7 +13,9 @@ train_datasets = [
 
 val_datasets = [
     dict(type='ImageFolder',
-         root='/home/cmf/datasets/water/train_val/val')
+         root='/home/cmf/datasets/water/train_val/val'),
+    dict(type='ImageFolder',
+         root='/home/cmf/datasets/water/train_val2/val'),
 ]
 
 scheduler = dict(
@@ -21,7 +25,7 @@ scheduler = dict(
 )
 
 model = dict(
-    type='AllconvNet',
+    type='mobilenet_v2',
     num_classes=2
 )
 
@@ -46,11 +50,25 @@ optimizer = dict(
     momentum=0.9
 )
 
+loss = dict(
+    type='nn.CrossEntropyLoss',
+    # weight=[1, 1.5]
+)
+
+#  注释性质
+data = dict(
+    input_size=(224, 224),
+    type='rgb',
+    mean=0,
+    std=255
+)
+
 transform = [
     # torchvision.transforms.FiveCrop(50)
     # torchvision.transforms.ColorJitter()
     # dict(type='RandomAffine', degrees=30, scale=(0.5, 1.5), shear=5),
-    # dict(type='RandomHorizontalFlip'),
+    dict(type='RandomHorizontalFlip'),
+    # dict(type='ColorJitter', brightness=0.3, contrast=0.3, saturation=0.3),
     # dict(type='ColorJitter', brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3),
     # dict(type='RandomGrayscale'),
     # dict(type='iaa.CoarseDropout', p=(0.03, 0.15), size_percent=(0.1, 0.4)),

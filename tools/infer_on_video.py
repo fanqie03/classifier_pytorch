@@ -22,7 +22,12 @@ fourcc = cv2.VideoWriter_fourcc(*'XVID')
 fps = cap.get(cv2.CAP_PROP_FPS)
 size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
         int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-out = cv2.VideoWriter(args.output_video, fourcc, fps, size)
+
+paths = args.input_video.split('.')
+
+output_video = args.output_video or paths[0] + '_.' + paths[1]
+print(output_video)
+out = cv2.VideoWriter(output_video, fourcc, fps, size)
 
 ret, frame = cap.read()
 
@@ -43,7 +48,8 @@ while ret:
     img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     img = cv2.resize(img, (224, 224))
-    img = np.float32(img)
+    # img = np.float32(img)
+    img = img.astype(np.float32)
     # print(img.max(), img.min())
     img = img / 255
     # print(img.max(), img.min())
@@ -53,10 +59,11 @@ while ret:
     img = torch.from_numpy(img)
     img = img.cuda()
 
-    img = torch.rand_like(img)
+    # img = torch.rand_like(img)
     print(img.max(), img.min())
-    r = net(img)
-    value, index = torch.max(r, 1)
+    with torch.no_grad():
+        r = net(img)
+        value, index = torch.max(r, 1)
     t = classes[index[0]]
     print(r, t)
     ...
@@ -68,12 +75,12 @@ while ret:
         cv2.putText(raw, t, (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 1, color=(255, 0, 0))
     draw = raw
     # if args.show:
-    # cv2.imshow('raw', raw)
 #     cv2.imshow('draw', draw)
-#     if cv2.waitKey(1) & 0xff == ord('q'):
-#         break
+    cv2.imshow('raw', raw)
+    if cv2.waitKey(1) & 0xff == ord('q'):
+        break
     # # 写入一帧
-    # out.write(draw)
+    out.write(draw)
     # # 读取新的一帧
     ret, frame = cap.read()
 
