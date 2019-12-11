@@ -107,5 +107,4 @@ data/
 .idea/
 checkpoint/
 weight/
-prj_spoof_ncnn
 *.onnx
