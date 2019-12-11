@@ -7,7 +7,8 @@ import importlib
 
 import torch
 import yaml
-import torch.nn as nn
+import numpy as np
+import cv2
 
 if __name__ == '__main__':
     import argparse
@@ -21,7 +22,33 @@ if __name__ == '__main__':
     print(parser.parse_args())
 
 
+def pil_to_cv2(img):
+    """
+
+    :param img:PIL format, rgb type
+    :return:
+    """
+    img = np.asarray(img)
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    return img
+
+
+def cv2_to_pil(img):
+    """
+
+    :param img: numpy array, bgr type
+    :return:
+    """
+    from PIL import Image
+
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = Image.fromarray(img)
+    return img
+
+
 def init_weight(model):
+    import torch.nn as nn
+
     for m in model.modules():
         if isinstance(m, (nn.Conv2d, nn.Linear)):
             nn.init.xavier_uniform_(m.weight)
@@ -120,3 +147,7 @@ def freeze_net_layers(net):
 def store_labels(path, labels):
     with open(path, "w") as f:
         f.write("\n".join(labels))
+
+
+def to_numpy(tensor):
+    return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()

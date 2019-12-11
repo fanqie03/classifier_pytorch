@@ -13,10 +13,11 @@ def get_default_args():
         help='automatically scale lr with the number of gpus')
 
     # infer_on_video
-    parser.add_argument('--input_video')
+    parser.add_argument('--input_video', default=0)
     parser.add_argument('--output_video')
     parser.add_argument('--ckpt')
     parser.add_argument('--show', default=False, action='store_true')
+    parser.add_argument('--theme', default='')
 
     args = parser.parse_args()
 
