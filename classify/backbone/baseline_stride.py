@@ -2,9 +2,9 @@ import torch
 from torch import nn
 
 
-class AllconvNet(nn.Module):
+class AllconvNetStride(nn.Module):
     def __init__(self, num_classes):
-        super(AllconvNet, self).__init__()
+        super(AllconvNetStride, self).__init__()
         self.body = nn.Sequential(
             nn.Conv2d(3, 64, 3, 2),
             nn.Conv2d(64, 64, 3, 2),
