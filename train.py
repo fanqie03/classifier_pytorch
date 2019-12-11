@@ -108,8 +108,8 @@ def test(model, criterion, loader, device, global_step, writer=None, ):
             # print(score)
             loss = criterion(score, labels)
             _, preds = torch.max(score, 1)
-            print(preds.detach().cpu().numpy().tolist())
-            print(labels.data.cpu().numpy().tolist())
+            # print(preds.detach().cpu().numpy().tolist())
+            # print(labels.data.cpu().numpy().tolist())
             acc = torch.sum(preds == labels.data).detach().cpu().numpy() * 1.0
             acc = acc / len(images)
             loss = loss.item()
@@ -136,7 +136,7 @@ def main():
 
     t = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
     global log_json_file
-    work_dir = os.path.join(cfg.train.work_dir, t)
+    work_dir = os.path.join(cfg.train.work_dir, cfg.theme + t)
     ckpt_dir = os.path.join(work_dir, 'ckpt')
     model_dir = os.path.join(work_dir, 'model')
     if not os.path.exists(work_dir):
@@ -150,8 +150,10 @@ def main():
 
     log_json_file = os.path.join(work_dir, 'log.json')
 
-    with open(os.path.join(work_dir, 'meta.txt'), 'w') as f:
-        pprint(cfg, f)
+    with open(os.path.join(work_dir, 'meta.json'), 'w') as f:
+        # pprint(cfg, f)
+        import json
+        json.dump(cfg, f)
     print(cfg)
 
     device = torch.device(f'cuda:{cfg.device.cuda_index[0]}'
