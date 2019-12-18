@@ -8,15 +8,23 @@
 #include "det4.h"
 #include "det4.id.h"
 
+#include "cpu.h"
 
 MtcnnDetector::MtcnnDetector()
 {
+    int num_threads=1;
+    ncnn::set_omp_dynamic(0);
+    ncnn::set_omp_num_threads(num_threads);
+//    this->Pnet.opt.num_threads=num_threads;
     this->Pnet.load_param(det1_param_bin);
     this->Pnet.load_model(det1_bin);
+//    this->Rnet.opt.num_threads=num_threads;
     this->Rnet.load_param(det2_param_bin);
     this->Rnet.load_model(det2_bin);
+//    this->Onet.opt.num_threads=num_threads;
     this->Onet.load_param(det3_param_bin);
     this->Onet.load_model(det3_bin);
+//    this->Lnet.opt.num_threads=num_threads;
     this->Lnet.load_param(det4_param_bin);
     this->Lnet.load_model(det4_bin);
 }

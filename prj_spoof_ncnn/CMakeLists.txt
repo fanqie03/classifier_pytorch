@@ -4,8 +4,8 @@ project(untitled)
 #set(CMAKE_CXX_STANDARD 14)
 
 # 配置ncnn的链接库和头文件
-set(NCNN_LIBS /home/cmf/dev/ncnn-20191113/build-host-gcc-linux-without-openmp/install/lib/libncnn.a)
-set(NCNN_INCLUDE_DIRS /home/cmf/dev/ncnn-20191113/build-host-gcc-linux-without-openmp/install/include/ncnn)
+set(NCNN_LIBS /home/cmf/dev/ncnn-20191113/build-host-gcc-linux/install/lib/libncnn.a)
+set(NCNN_INCLUDE_DIRS /home/cmf/dev/ncnn-20191113/build-host-gcc-linux/install/include/ncnn)
 #add_subdirectory(arcface)
 file(GLOB SRC_LIST "jni.cpp" "arcface/*.cpp" )
 file(GLOB CLASSIFY_LIST  "classify/*.cpp")

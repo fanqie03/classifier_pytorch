@@ -94,7 +94,7 @@ int main(int args, char **argv) {
 //    }else{
 //        capture = cv::VideoCapture(0);
 //    }
-    cv::VideoCapture capture("/home/cmf/vlc-record-2019-12-09-13h56m39s-video-.avi");
+    cv::VideoCapture capture("/home/cmf/my_video.avi");
 
 
     int src_width = capture.get(cv::CAP_PROP_FRAME_WIDTH);
