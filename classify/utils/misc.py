@@ -151,3 +151,14 @@ def store_labels(path, labels):
 
 def to_numpy(tensor):
     return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
+
+
+def to_img(tensor: torch.Tensor, bgr=True):
+    if tensor.dim() == 4:
+        tensor = tensor[0]
+    tensor = tensor.detach().cpu().numpy()
+    tensor = tensor.clip(0, 1) * 255
+    tensor = tensor.astype(np.uint8).transpose((1, 2, 0))
+    if bgr:
+        tensor = tensor[:, :, ::-1]
+    return tensor
