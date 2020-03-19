@@ -25,6 +25,6 @@ class AllconvNetStride(nn.Module):
 
 if __name__ == '__main__':
     data = torch.ones((1, 3, 224, 224))
-    model = AllconvNet(10)
+    model = AllconvNetStride(10)
     r = model(data)
     print(r.shape)

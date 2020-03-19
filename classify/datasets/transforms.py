@@ -5,6 +5,9 @@ al = albumentations
 tr = transforms
 
 
+# class GrayFill:
+
+
 def build_transform(seq, args, kwargs):
     """
     demo:

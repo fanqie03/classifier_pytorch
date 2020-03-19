@@ -10,13 +10,60 @@ import numpy as np
 from PIL import Image
 from datasets.img_aug import ImgAug
 # import albumentations as
+from pathlib import Path
+import pandas as pd
+import imageio
+from PIL import Image
+
+
+class CsvFolder:
+    def __init__(self, root, transform=None, target_transform=None):
+        self.transform = transform
+        self.target_transform = target_transform
+        r = Path(root)
+        ann_file = list(r.glob('*.csv'))[0]
+        self.samples = pd.read_csv(ann_file)
+        self.classes = sorted(self.samples.labels.unique())
+        self.samples.image_path = self.samples.image_path.map(lambda x: r / x)
+
+    def loader(self, path):
+        img = imageio.imread(path)
+        if len(img.shape) == 2:
+            img = img[:, :, None]
+        if img.shape[2] ==1:
+            img = np.concatenate([img, img, img], axis=-1)
+        if img.shape[2] == 4:
+            img = img[:, :, 0:3]
+        # print(img.shape)
+        return Image.fromarray(img)
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (sample, target) where target is class_index of the target class.
+        """
+        path, target = self.samples.iloc[index]
+        sample = self.loader(path)
+        if self.transform is not None:
+            sample = self.transform(sample)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return sample, target
 
 
 def get_dataset(size=(224, 224),
                 data_root='/home/cmf/datasets/helmet_all/train_val',
                 batch_size=32, num_workers=4,
                 mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225]):
+                std=[0.229, 0.224, 0.225],
+                loader='ImageFolder'):
     seq = iaa.Sequential([
         iaa.Sometimes(
             0.5,
@@ -50,7 +97,7 @@ def get_dataset(size=(224, 224),
     }
 
     image_datasets = {
-        x: ImageFolder(os.path.join(data_root, x),
+        x: eval(loader)(os.path.join(data_root, x),
                        data_transforms[x]) for x in ('train', 'val')}
     dataloaders = {
         x: DataLoader(image_datasets[x], batch_size=batch_size,

@@ -1,7 +1,7 @@
 import torch
 import torchvision
 import argparse
-from backbone import *
+from classify.backbone import *
 import shutil
 import os
 from pathlib import Path

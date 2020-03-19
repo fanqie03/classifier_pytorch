@@ -10,7 +10,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--source_dir', default='/home/cmf/datasets/extract_data/test_predict/unknown')
     parser.add_argument('--target_dir', default='/home/cmf/datasets/extract_data/test_predict/split')
-    parser.add_argument('--split_num', default=50)
+    parser.add_argument('--split_num', default=5)
     args = parser.parse_args()
     return args
 

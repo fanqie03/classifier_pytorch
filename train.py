@@ -13,6 +13,7 @@ from tools.builder import build_transform
 from classify.utils.misc import *
 from classify import get_default_args
 from torchvision.datasets import ImageFolder
+from datasets.folder import CsvFolder
 
 
 global_steps=0
